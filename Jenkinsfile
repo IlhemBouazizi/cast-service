@@ -153,10 +153,6 @@ pipeline
         }        
         stage('Deploiement en prod')
         {
-            when 
-            {
-                branch 'master'
-            }
             input
             {
                 message "Confirmer le deployment en prod"
@@ -181,10 +177,6 @@ pipeline
         }
         stage('Test deploiement en prod')
         {    
-            when 
-            {
-                branch 'master'
-            }            
             environment
             {
                 NODEPORT = '30013'
