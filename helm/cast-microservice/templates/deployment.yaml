@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cast
+  namespace: {{ .Values.nameSpace }}
+spec:
+  replicas: {{ .Values.cast.replicaCount }}  
+  selector:
+    matchLabels:
+      app: cast
+  template:
+    metadata:
+      labels:
+        app: cast
+    spec:
+      containers:
+        - name: cast
+          image: {{ .Values.cast.image.account }}/{{ .Values.cast.image.repository }}:{{ .Values.cast.image.tag }}
+          command: ['sh', '-c', 'uvicorn app.main:app --reload --host 0.0.0.0 --port 8000']
+          ports:
+            - containerPort: {{ .Values.cast.service.targetPort }}
+          env:
+            - name: DATABASE_URI
+              value: postgresql://cast_db_username:cast_db_password@{{ .Values.castDB.service.clusterIP }}/{{ .Values.castDB.env.dbName }}
+            - name: CAST_SERVICE_HOST_URL
+              value:  http://{{ .Values.cast.service.clusterIP }}:{{ .Values.cast.service.port }}/api/v1/casts/
+          volumeMounts:
+            - name: cast-volume
+              mountPath: {{ .Values.cast.mountPath }}
+      volumes:
+        - name: cast-volume
+          hostPath:
+            path: {{ .Values.cast.hostPath }}
+      initContainers:
+        - name: init-cast
+          image: busybox:1.28
+          command: ['sh', '-c', 'echo The gateway is running! && sleep 30']                                      
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cast-service
+  namespace: {{ .Values.nameSpace }}
+spec:
+  type: {{ .Values.cast.service.type }}
+  selector:
+    app: cast
+  ports:
+    - protocol: {{ .Values.cast.service.protocol }}
+      port: {{ .Values.cast.service.port }}
+      targetPort: {{ .Values.cast.service.targetPort }}
+      nodePort: {{ .Values.cast.service.nodePort }}
+
+---    
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cast-db
+  namespace: {{ .Values.nameSpace }}
+spec:
+  replicas: {{ .Values.castDB.replicaCount }}
+  selector:
+    matchLabels:
+      app: cast-db
+  template:
+    metadata:
+      labels:
+        app: cast-db
+    spec:
+      containers:
+        - name: cast-db
+          image: {{ .Values.castDB.image.repository }}:{{ .Values.castDB.image.tag }}
+          ports:
+            - containerPort: {{ .Values.castDB.service.targetPort }}
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: cast-secret
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cast-secret
+                  key: password
+            - name: POSTGRES_DB
+              value: {{ .Values.castDB.env.dbName }}
+          volumeMounts:
+            - name: cast-volume
+              mountPath: {{ .Values.castDB.mountPath }}
+      volumes:
+        - name: cast-volume
+          hostPath:
+            path: {{ .Values.castDB.hostPath }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cast-db-service
+  namespace: {{ .Values.nameSpace }}
+spec:
+  type: {{ .Values.castDB.service.type }}
+  selector:
+    app: cast-db
+  ports:
+    - protocol: {{ .Values.castDB.service.protocol }}
+      port: {{ .Values.castDB.service.port }}
+      targetPort: {{ .Values.castDB.service.targetPort }}
+  clusterIP: {{ .Values.castDB.service.clusterIP }}      

@@ -1,0 +1,33 @@
+nameSpace: helm
+
+cast:
+  replicaCount: 1
+  mountPath: /cast-service/
+  hostPath: /app    
+  image:
+    account: ilhemb
+    repository: cast-service
+    tag: latest
+  service:
+    type: NodePort
+    protocol: TCP
+    port: 8001
+    targetPort: 8000
+    nodePort: 30002
+
+castDB:
+  replicaCount: 1
+  mountPath: postgres_data_cast
+  hostPath: /var/lib/postgresql/data/
+  image:
+    repository: postgres
+    tag: 12.1-alpine
+  env:
+    dbName: cast_db_dev
+  service:
+    type: ClusterIP
+    protocol: TCP
+    port: 5432
+    targetPort: 5432
+    clusterIP: 10.43.7!0.2
+
